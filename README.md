@@ -264,8 +264,9 @@
      transition mượt để tạo cảm giác "chảy" (liquid) từ tab này sang
      tab khác, đúng như thanh tab bar iOS trong ảnh mẫu. */
   .lg-tab-indicator{
-    position:fixed;top:0;left:0;z-index:51; /* dưới nav (52) — nav sẽ
-       khúc xạ/hiện thị nó qua lớp kính trong suốt của nav phía trên */
+    position:fixed;top:0;left:0;z-index:53; /* TRÊN nav (52) — bong bóng
+       kính đè lên chữ menu, nhìn xuyên qua thấy chữ được khúc xạ/phóng
+       nhẹ, đúng như tab bar iOS trong ảnh mẫu */
     width:0;height:0;border-radius:999px;
     pointer-events:none;opacity:0;
     transition:opacity .2s ease, left .32s cubic-bezier(.34,1.4,.4,1),
@@ -490,14 +491,6 @@
 
   <!-- ===== GLASS: con trực tiếp của #root ===== -->
 
-  <!-- Viên bi glass trượt bên trong nav, đè lên mục đang hover/active
-       (giống ảnh mẫu iOS: highlight tròn trượt qua Home/New/Radio/Library).
-       Đặt TRƯỚC nav trong DOM để nav (và chữ menu) luôn vẽ đè lên trên nó.
-       Phải là con trực tiếp của #root — không nest trong .lg-nav — vì
-       thư viện từ chối glass lồng nhau. JS định vị nó theo toạ độ thật
-       của link đang được trỏ tới. -->
-  <div class="lg-tab-indicator" id="glassTabIndicator"></div>
-
   <!-- Viên nang chính: logo + menu, gọn ở giữa như tab bar iOS 26 -->
   <header class="lg-nav" id="glassNav">
     <div class="logo"><span class="m">ML</span> Mind Dlink</div>
@@ -508,6 +501,13 @@
       <a href="#pay" data-tab>FAQ</a>
     </nav>
   </header>
+
+  <!-- Viên bi glass ĐÈ LÊN TRÊN nav (như ảnh mẫu iOS: bong bóng kính
+       nằm trên icon Home, nhìn xuyên qua thấy chữ/icon bên dưới được
+       khúc xạ). Đặt SAU nav trong DOM + z-index cao hơn để thư viện
+       composite nó trên cùng — kính của nó sẽ "thấy" nav + chữ menu
+       phía dưới trong khúc xạ. -->
+  <div class="lg-tab-indicator" id="glassTabIndicator"></div>
 
   <!-- Viên nang phụ: tách riêng bên phải, như nút Search cạnh tab bar -->
   <div class="lg-actions" id="glassActions">
@@ -562,12 +562,13 @@
     chromAberration:.03, edgeHighlight:.1, specular:.22, cornerRadius:999, zRadius:30,
     saturation:.3, tintStrength:.05,
     floating:true, button:true, shadowOpacity:.3, shadowSpread:18 };
-  // Viên bi indicator: kính rõ hơn 1 chút để nổi bật là điểm nhấn đang
-  // "chảy" theo con trỏ, refraction cao hơn nav để có cảm giác thấu
-  // kính thật (không cần nhám dày như nav — nó nhỏ và di chuyển liên tục).
-  const INDICATOR_BASE = { blurBase:.28, blurRange:.22, refBase:.62, refFalloff:.1,
-    chromAberration:.05, edgeHighlight:.14, specular:.28, cornerRadius:999, zRadius:24,
-    saturation:.28, tintStrength:.08, shadowOpacity:.22, shadowSpread:10 };
+  // Viên bi indicator: THẤU KÍNH TRONG — blur gần 0 để chữ menu bên
+  // dưới xuyên qua đọc rõ, refraction cao để bẻ cong/phóng nhẹ chữ như
+  // bong bóng kính trên tab bar iOS (ảnh mẫu). Không dùng nhám ở đây.
+  const INDICATOR_BASE = { blurBase:.02, blurRange:.06, refBase:.95, refFalloff:.1,
+    chromAberration:.06, edgeHighlight:.16, specular:.3, fresnel:1,
+    cornerRadius:999, zRadius:22,
+    saturation:.1, shadowOpacity:.18, shadowSpread:8 };
 
   const fallback = (msg) => {
     [nav, actions, pill, indicator].forEach(el => el.classList.add('css-glass'));
@@ -595,7 +596,9 @@
 
     instance = await LiquidGlass.init({
       root: document.getElementById('root'),
-      glassElements: [indicator, nav, actions, pill], // indicator trước nav: nav vẽ đè lên trên
+      // indicator ĐỨNG CUỐI: composite sau cùng = nằm trên cùng, kính
+      // của nó khúc xạ được cả nav + chữ menu đã render bên dưới.
+      glassElements: [nav, actions, pill, indicator],
     });
 
     status.textContent = 'Liquid glass (WebGL) đang chạy ✓';
@@ -684,11 +687,16 @@
   themeBtn.addEventListener('click', () => {
     const isLight = document.body.classList.toggle('theme-light');
     themeBtn.textContent = isLight ? '☀️' : '🌙';
-    // Nền vừa đổi màu (CSS transition) — báo cho thư viện biết
-    // phải rasterize + render lại các glass để khúc xạ đúng theme mới.
+    // Nền .bg vừa đổi màu qua CSS — thư viện cache ảnh chụp nội dung
+    // tĩnh vĩnh viễn và KHÔNG tự phát hiện thay đổi paint (README:
+    // "a wrapper whose CSS background... you just updated" cần
+    // markChanged đích danh). Gọi markChanged(.bg) để buộc chụp lại
+    // nền theo theme mới; gọi 2 nhịp vì transition màu chạy .5s.
     if (instance) {
-      setTimeout(() => instance.markChanged(), 60);
-      setTimeout(() => instance.markChanged(), 400); // sau khi transition nền xong
+      const bgEl = document.querySelector('.bg');
+      const contentEl = document.querySelector('.content');
+      setTimeout(() => { instance.markChanged(bgEl); instance.markChanged(contentEl); }, 80);
+      setTimeout(() => { instance.markChanged(bgEl); instance.markChanged(contentEl); instance.markChanged(); }, 650);
     }
   });
 </script>
